@@ -1,15 +1,19 @@
 import csv
 import re
+import sys
 from pprint import pprint
 
 data = {}
 data2 = {}
+distr = ''
 
-def read_encryption_data(inf):
+def read_encryption_data(inf, distr):
+    if distr == 'rpm':
+        unversion = re.compile('-[0-9]')
+    else:
+        unversion = re.compile('_[0-9]')
     reader_keys  = csv.reader(inf)
     titles = [_.strip() for _ in reader_keys.next()]
-#    unversion = re.compile('-[0-9]')
-    unversion = re.compile('_[0-9]')
     for row in reader_keys:
         current = dict(zip(titles, row))
         if current['Package'] != '':
@@ -20,10 +24,13 @@ def read_encryption_data(inf):
                 if current['Package'] in data.keys():
                     data[current['Package']][current['Algorithm'].lstrip().\
                     rstrip()]=current['MaxKeyLength'].lstrip().rstrip()
+#                    data['Comment']=[current['Comment'].lstrip().rstrip()]
                 else:
-                    data[current['Package']]={current['Algorithm'].lstrip()\
-                    .rstrip() : current['MaxKeyLength'].lstrip().rstrip()} 
-    pprint(data)
+                    data[current['Package']]={
+                        'Comment' : current['Comment'].lstrip().rstrip(),
+                         current['Algorithm'].lstrip().rstrip() : \
+                         current['MaxKeyLength'].lstrip().rstrip()
+                    }
     return data
 
 def read_package_data(inf):
@@ -37,46 +44,9 @@ def read_package_data(inf):
             data2[current2['Package name'].strip()] = current2
     return data2
    
-def write_out_data(merged_data, outf):
-    fieldnames = ('Package name', "Package Description", 'Package License',\
-                  'Encryption types', 'Encryption Max Key Length')
-    writer=csv.DictWriter(outf, fieldnames=fieldnames)
-    headers = dict( (n,n) for n in fieldnames )
-    writer.writerow(headers)
-    for key,value in merged_data.items():
-        if packname == key:
-            key = ''
-        if packdescr == value['Package Description']:
-            value['Package Description'] = ''
-        if packlic == value['Package License']:
-            value['Package License'] = ''
-        writer.writerow( { 'Package name':key,
-                           'Package Description':value['Package Description'],
-                           'Package License':value['Package License'],
-                           'Encryption types':value['Algorithm'],
-                           'Encryption Max Key Length':value['MaxKeyLength'] ,
-                         }
-                       )
-        packname = key
-        packdesc = value['Package Description']
-        packlic = value['Package License']
-   
-def merge_package_encryption_data_2(data, data2):
-    tmp_k=''
-    for k,v in data2.items():
-        for k2,v2 in data.items():
-            data3['Package name'] = ({'Package Description':v['Package Description'],
-                                      'Package License':v['Package License'],
-                                      'Encryption types':v2['Algorithm'],
-                                      'Encryption Max Key Length':v2['MaxKeyLength'],
-                                     }
-                                    )
-            pprint(data3)
-    return data3
-
 def merge_package_encryption_data(data, data2, outf):
     fieldnames = ('Package name', "Package Description", 'Package License',\
-                  'Encryption types', 'Encryption Max Key Length')
+                  'Encryption types', 'Encryption Max Key Length', 'Comment')
     writer=csv.DictWriter(outf, fieldnames=fieldnames)
     headers = dict( (n,n) for n in fieldnames )
     writer.writerow(headers)
@@ -86,22 +56,29 @@ def merge_package_encryption_data(data, data2, outf):
             tmp_k=k
             packdesc=''
             packlic=''
+            comment=''
             for name,fields in v['Encryption'].items():
                if packdesc == v['Package Description']:
                    v['Package Description']=''
                if packlic == v['Package License']:
                    v['Package License']=''
-                   
+               if name == 'Comment':
+                   comment = fields
+                   if comment == '':
+                       comment = 'no comments'
+                   continue
                writer.writerow( { 'Package name':tmp_k,
                                   'Package Description':v['Package Description'],
                                   'Package License':v['Package License'],
                                   'Encryption types':name,
                                   'Encryption Max Key Length':fields,
+                                  'Comment':comment,
                                  }
                                )
                tmp_k=''
                packdesc=v['Package Description']
                packlic=v['Package License']
+               comment=''
         else:
             writer.writerow( { 'Package name':k,
                                'Package Description':v['Package Description'],
@@ -112,8 +89,12 @@ def merge_package_encryption_data(data, data2, outf):
                           )
 
 def main(enc_input, package_input, output):
+    if enc_input == 'ubuntu61.csv':
+        distr = 'deb'
+    else:
+        distr = 'rpm'
     with open(enc_input, 'rb') as inf:
-            encryption_data = read_encryption_data(inf)
+            encryption_data = read_encryption_data(inf, distr)
     inf.close()        
     
     with open(package_input, 'rb') as inf:
@@ -122,7 +103,7 @@ def main(enc_input, package_input, output):
 
     with open(output, 'w') as outf:
         merge_package_encryption_data(encryption_data, package_data, outf)
-    outf.close()    
+    outf.close()
 
 if __name__ == "__main__":
-    main('ubuntu61.csv', 'license_mos_6.1_deb.csv', 'deb_output.csv')
+    main(sys.argv[1], sys.argv[2], sys.argv[3])
