@@ -40,12 +40,12 @@ def read_package_data(inf):
         current2 = {k:v.strip() for k, v in zip(titles, row)
                     if k != '' and v != ''}
         if current2.get('Package name') is not None:                                  
-            current2['Encryption'] = data.get(current2['Package name'])
+            current2['Encryption'] = data.get(current2['Source'])
             data2[current2['Package name'].strip()] = current2
     return data2
    
 def merge_package_encryption_data(data, data2, outf):
-    fieldnames = ('Package name', "Package Description", 'Package License',\
+    fieldnames = ('Package name', "Source", "Package Description", 'Package License',\
                   'Encryption types', 'Encryption Max Key Length', 'Comment')
     writer=csv.DictWriter(outf, fieldnames=fieldnames)
     headers = dict( (n,n) for n in fieldnames )
@@ -57,17 +57,21 @@ def merge_package_encryption_data(data, data2, outf):
             packdesc=''
             packlic=''
             comment=''
+            packsource=''
             for name,fields in v['Encryption'].items():
                if packdesc == v['Package Description']:
                    v['Package Description']=''
                if packlic == v['Package License']:
                    v['Package License']=''
+               if packsource == v['Source']:
+                   v['Source']=''
                if name == 'Comment':
                    comment = fields
                    if comment == '':
                        comment = 'no comments'
                    continue
                writer.writerow( { 'Package name':tmp_k,
+                                  'Source':v['Source'],
                                   'Package Description':v['Package Description'],
                                   'Package License':v['Package License'],
                                   'Encryption types':name,
@@ -78,9 +82,11 @@ def merge_package_encryption_data(data, data2, outf):
                tmp_k=''
                packdesc=v['Package Description']
                packlic=v['Package License']
+               packsource=v['Source']
                comment=''
         else:
             writer.writerow( { 'Package name':k,
+                               'Source':v['Source'],
                                'Package Description':v['Package Description'],
                                'Package License':v['Package License'],
                                'Encryption types':'',
